@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Gemini AI 聊天</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; }
+        .chat-box { border: 1px solid #ccc; padding: 20px; min-height: 100px; background: #f9f9f9; }
+        .user-msg { color: blue; }
+        .ai-msg { color: green; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+<h2>与 Gemini 对话</h2>
+
+<div class="chat-box">
+    <div th:if="${userMessage}">
+        <p class="user-msg"><strong>你:</strong> <span th:text="${userMessage}"></span></p>
+        <p class="ai-msg"><strong>AI:</strong> <pre th:text="${aiResponse}"></pre></p>
+
+        <div style="font-size: 0.8em; color: #888; border-top: 1px dashed #ddd; padding-top: 5px; margin-top: 10px;">
+            <span>模型: <span th:text="${modelName}"></span></span> |
+            <span>状态: <span th:text="${finishReason}"></span></span> |
+            <strong>Token 消耗: </strong>
+            <span>输入 <span th:text="${promptTokens}"></span></span>,
+            <span>输出 <span th:text="${generationTokens}"></span></span>,
+            <span>总计 <span th:text="${totalTokens}"></span></span>
+        </div>
+    </div>
+</div>
+
+<br>
+<form action="/chat" method="post">
+    <input type="text" name="message" placeholder="输入消息..." style="width: 300px;" required>
+    <input type="text" name="default_user" placeholder="default_user" style="width: 300px;" required>
+    <button type="submit">发送</button>
+</form>
+</body>
+</html>
+
+<style>
+    .ai-msg span {
+        white-space: pre-wrap; /* 保留换行符并自动换行 */
+        display: block;
+        line-height: 1.6;
+    }
+</style>
