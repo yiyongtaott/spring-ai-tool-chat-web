@@ -1,11 +1,10 @@
 package com.flandre.controller;
 
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import com.flandre.config.ToolService;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.DefaultChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,16 +12,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.web.bind.annotation.PostMapping; // 改为 Post
+import org.springframework.web.bind.annotation.ResponseBody;
+import reactor.core.publisher.Flux;
 
 
 @Controller
+//2026-03-04
 public class GeminiChatController {
     private final ChatMemory chatMemory;
     private final ChatClient chatClient;
+    private final ToolService toolService;
 
-    public GeminiChatController(ChatMemory chatMemory, ChatClient.Builder builder) {
+    public GeminiChatController(ChatMemory chatMemory, ChatClient.Builder builder, ToolService toolService) {
         this.chatMemory = chatMemory;
         this.chatClient = builder.build();
+        this.toolService = toolService;
     }
 
     // 初始进入页面用 Get
@@ -30,12 +34,33 @@ public class GeminiChatController {
     public String chatIndex() {
         return "chat";
     }
+
     @GetMapping("/")
     public String index() {
         return "chat";
     }
 
-    // 提交聊天用 Post
+    /**
+     * 流式响应接口：生产流媒体类型文本
+     */
+    @PostMapping(value = "/api/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @ResponseBody
+    public Flux<ChatResponse> streamChat(
+            @RequestParam String message,
+            @RequestParam String default_user) {
+
+        return this.chatClient.prompt()
+                .tools(toolService)
+                .advisors(MessageChatMemoryAdvisor.builder(chatMemory)
+                        .conversationId(default_user)
+                        .build())
+                .user(u -> u.text("【规则】：每句话结尾加小括号并注明内心活动。\n---\n问题：{msg}")
+                        .param("msg", message))
+                .stream()
+                .chatResponse(); // 这里返回完整的响应对象，包含元数据
+    }
+
+/*    // 提交聊天用 Post
     @PostMapping("/chat")
     public String chat(
             @RequestParam String message,
@@ -45,7 +70,7 @@ public class GeminiChatController {
         System.out.println("default_user: " + default_user);
         if (message != null && !message.isBlank()) {
             var chatResponse = this.chatClient.prompt()
-                    .tools("weatherFunction")
+                    .tools(toolService)
                     .advisors(MessageChatMemoryAdvisor.builder(chatMemory).conversationId(default_user).build())
                     .user(u -> u.text("【规则】：每句话结尾加小括号并注明内心活动。\n---\n问题：{msg}")
                             .param("msg", message))
@@ -73,6 +98,6 @@ public class GeminiChatController {
             System.out.println("aiResponse: " + responseContent);
         }
         return "chat";
-    }
+    }*/
 
 }

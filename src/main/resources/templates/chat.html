@@ -1,46 +1,177 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html>
 <head>
-    <title>Gemini AI 聊天</title>
+    <title>Gemini Agent 聊天</title>
     <style>
-        body { font-family: sans-serif; margin: 40px; }
-        .chat-box { border: 1px solid #ccc; padding: 20px; min-height: 100px; background: #f9f9f9; }
-        .user-msg { color: blue; }
-        .ai-msg { color: green; margin-bottom: 10px; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 40px;
+            background: #f0f2f5;
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #chat-history {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .msg {
+            margin-bottom: 12px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 80%
+        }
+
+        .user-msg {
+            align-self: flex-end;
+            background: #007bff;
+            color: white;
+        }
+
+        .ai-msg {
+            align-self: flex-start;
+            background: #e9ecef;
+            color: #333;
+            white-space: pre-wrap;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-<h2>与 Gemini 对话</h2>
 
-<div class="chat-box">
-    <div th:if="${userMessage}">
-        <p class="user-msg"><strong>你:</strong> <span th:text="${userMessage}"></span></p>
-        <p class="ai-msg"><strong>AI:</strong> <pre th:text="${aiResponse}"></pre></p>
+<div class="chat-container">
+    <h2>Gemini Agent (Streaming)</h2>
+    <div id="chat-history">
+    </div>
 
-        <div style="font-size: 0.8em; color: #888; border-top: 1px dashed #ddd; padding-top: 5px; margin-top: 10px;">
-            <span>模型: <span th:text="${modelName}"></span></span> |
-            <span>状态: <span th:text="${finishReason}"></span></span> |
-            <strong>Token 消耗: </strong>
-            <span>输入 <span th:text="${promptTokens}"></span></span>,
-            <span>输出 <span th:text="${generationTokens}"></span></span>,
-            <span>总计 <span th:text="${totalTokens}"></span></span>
-        </div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="输入消息...">
+        <input type="text" id="userId" placeholder="用户ID" style="width: 100px;" value="user_123">
+        <button onclick="send()">发送</button>
+    </div>
+
+    <div id="stats-bar" style="font-size: 0.8em; color: #888; margin-top: 10px; display: none;">
+        模型: <span id="stat-model"></span> |
+        状态: <span id="stat-reason"></span> |
+        Token 消耗: 输入 <span id="stat-prompt"></span>,
+        输出 <span id="stat-gen"></span>, 总计 <span id="stat-total"></span>
     </div>
 </div>
 
-<br>
-<form action="/chat" method="post">
-    <input type="text" name="message" placeholder="输入消息..." style="width: 300px;" required>
-    <input type="text" name="default_user" placeholder="default_user" style="width: 300px;" required>
-    <button type="submit">发送</button>
-</form>
+<script>
+    async function send() {
+        const input = document.getElementById('userInput');
+        const userId = document.getElementById('userId').value;
+        const history = document.getElementById('chat-history');
+        const message = input.value;
+        if (!message) return;
+
+        // 1. 插入用户消息
+        history.innerHTML += `<div class="msg user-msg">${message}</div>`;
+        input.value = '';
+
+        // 2. 准备 AI 消息占位符
+        const aiDiv = document.createElement('div');
+        aiDiv.className = 'msg ai-msg';
+        aiDiv.innerText = '...';
+        history.appendChild(aiDiv);
+        history.scrollTop = history.scrollHeight;
+
+        // 3. 发起流式请求
+        const response = await fetch(`/api/chat?message=${encodeURIComponent(message)}&default_user=${userId}`, {
+            method: 'POST'
+        });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        let aiContent = '';
+        let buffer = ''; // 新增：缓冲区
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            let lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line.startsWith('data:')) continue;
+
+                try {
+                    const jsonStr = line.replace('data:', '').trim();
+                    const data = JSON.parse(jsonStr);
+
+                    // 【关键点 1】：内容累加
+                    // 检查 data.result.output.text 是否存在
+                    if (data.result && data.result.output) {
+                        const chunk = data.result.output.text || data.result.output.content || "";
+
+                        if (chunk) {
+                            // 如果你的 data 确实是增量的（每一块只有几个字）
+                            // 我们需要把这个 chunk 加到总内容里
+                            aiContent += chunk;
+
+                            // 然后整体更新到界面上，这样就不会丢失之前的文字
+                            aiDiv.innerText = aiContent;
+                        }
+                    }
+
+                    // 【关键点 2】：元数据（Token消耗）
+                    // 统计信息通常只在流的最后一帧或特定帧出现，直接覆盖显示即可
+                    if (data.metadata && data.metadata.usage) {
+                        const usage = data.metadata.usage;
+                        document.getElementById('stats-bar').style.display = 'block';
+                        document.getElementById('stat-model').innerText = data.metadata.model || 'Gemini';
+
+                        // 确保路径正确提取状态
+                        const reason = (data.result && data.result.metadata) ? data.result.metadata.finishReason : 'STOP';
+                        document.getElementById('stat-reason').innerText = reason;
+
+                        document.getElementById('stat-prompt').innerText = usage.promptTokens;
+                        document.getElementById('stat-gen').innerText = usage.completionTokens;
+                        document.getElementById('stat-total').innerText = usage.totalTokens;
+                    }
+                } catch (e) {
+                    console.warn("JSON解析重试中...");
+                }
+            }
+            history.scrollTop = history.scrollHeight;
+        }
+    }
+</script>
 </body>
 </html>
-
-<style>
-    .ai-msg span {
-        white-space: pre-wrap; /* 保留换行符并自动换行 */
-        display: block;
-        line-height: 1.6;
-    }
-</style>

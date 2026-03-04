@@ -5,12 +5,21 @@ spring:
     password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
   ai:
-    google:
-      genai:
+    openai:
+      api-key: ${GOOGLE_AI_API_KEY}
+      chat:
+        base-url: https://generativelanguage.googleapis.com/v1beta/openai/
         api-key: ${GOOGLE_AI_API_KEY}
-        chat:
-          options:
-            model: gemma-3-27b-it
-#            model: gemini-2.5-flash
+        options:
+          model: gemini-2.5-flash-lite
+#  ai:
+#    google:
+#      genai:
+#        api-key: ${GOOGLE_AI_API_KEY}
+#        chat:
+#          options:
+#            model: gemma-3-27b-it
+##            model: gemini-2.5-flash
+##            model: gemini-2.5-flash-lite
 server:
   port: 8091
