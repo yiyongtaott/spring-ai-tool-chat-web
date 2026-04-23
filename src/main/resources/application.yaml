@@ -6,12 +6,16 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   ai:
     openai:
-      api-key: ${GOOGLE_AI_API_KEY}
+      api-key: ${THE_ONLY_ONE_KEY}
       chat:
-        base-url: https://generativelanguage.googleapis.com/v1beta/openai/
-        api-key: ${GOOGLE_AI_API_KEY}
+#        base-url: https://generativelanguage.googleapis.com/v1beta/openai/
+#        base-url: https://api.cerebras.ai/
+        base-url: https://openrouter.ai/api
+        api-key: ${THE_ONLY_ONE_KEY}
         options:
-          model: gemini-2.5-flash-lite
+#          model: gemini-2.5-flash-lite
+#          model: gpt-oss-120b
+          model: openrouter/free
 #  ai:
 #    google:
 #      genai:

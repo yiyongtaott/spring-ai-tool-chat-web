@@ -2,16 +2,14 @@ package com.flandre.controller;
 
 import com.flandre.config.ToolService;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.web.bind.annotation.PostMapping; // 改为 Post
 import org.springframework.web.bind.annotation.ResponseBody;
 import reactor.core.publisher.Flux;
 
@@ -51,53 +49,21 @@ public class GeminiChatController {
 
         return this.chatClient.prompt()
                 .tools(toolService)
+                .system(s -> s.text("""
+                        你是贴心的生活管家。
+                        当用户询问建议时，你必须执行以下流程：
+                        1. 调用 getWeather 查询天气。
+                        2. 根据天气结果调用 getClothesAdvice 获取建议。
+                        3. 最后统一回复用户。
+                        
+                        【强制规则】：每句话结尾必须加小括号并注明内心活动。
+                        """))
                 .advisors(MessageChatMemoryAdvisor.builder(chatMemory)
                         .conversationId(default_user)
                         .build())
-                .user(u -> u.text("【规则】：每句话结尾加小括号并注明内心活动。\n---\n问题：{msg}")
-                        .param("msg", message))
+                .user(u -> u.text("{msg}").param("msg", message))
                 .stream()
                 .chatResponse(); // 这里返回完整的响应对象，包含元数据
     }
-
-/*    // 提交聊天用 Post
-    @PostMapping("/chat")
-    public String chat(
-            @RequestParam String message,
-            @RequestParam String default_user,
-            Model model) {
-        System.out.println("message: " + message);
-        System.out.println("default_user: " + default_user);
-        if (message != null && !message.isBlank()) {
-            var chatResponse = this.chatClient.prompt()
-                    .tools(toolService)
-                    .advisors(MessageChatMemoryAdvisor.builder(chatMemory).conversationId(default_user).build())
-                    .user(u -> u.text("【规则】：每句话结尾加小括号并注明内心活动。\n---\n问题：{msg}")
-                            .param("msg", message))
-                    .call()
-                    .chatResponse();
-
-            // 2. 提取内容和元数据
-            String responseContent = chatResponse.getResult().getOutput().getText();
-            var metadata = chatResponse.getMetadata();
-            var usage = metadata.getUsage();
-
-            // 3. 将信息存入 model
-            model.addAttribute("userMessage", message);
-            model.addAttribute("aiResponse", responseContent);
-
-            // 消耗统计
-            model.addAttribute("promptTokens", usage.getPromptTokens());
-            model.addAttribute("generationTokens", usage.getCompletionTokens());
-            model.addAttribute("totalTokens", usage.getTotalTokens());
-
-            // 其他有用信息
-            model.addAttribute("modelName", metadata.getModel());
-            model.addAttribute("finishReason", chatResponse.getResult().getMetadata().getFinishReason());
-
-            System.out.println("aiResponse: " + responseContent);
-        }
-        return "chat";
-    }*/
 
 }
