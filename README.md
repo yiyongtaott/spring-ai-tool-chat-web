@@ -53,4 +53,5 @@
 ${THE_ONLY_ONE_KEY}
 
 
+友情链接
 [![LINUX DO](https://img.shields.io/badge/Community-LINUX%20DO-blue?style=flat-square)](https://linux.do/)
