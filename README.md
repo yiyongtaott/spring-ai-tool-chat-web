@@ -27,11 +27,7 @@
 在 `src/main/resources/application.yml` 中配置您的核心密钥：
 
 ```yaml
-spring:
-  ai:
-    openai:
-      api-key: ${THE_ONLY_ONE_KEY}
-      base-url: https://openrouter.ai/api/v1
+api-key: ${THE_ONLY_ONE_KEY}
 ```
 
 ---
